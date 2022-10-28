@@ -1,0 +1,103 @@
+<button id="start">start</button>
+<button id="stop" disabled="">stop</button>
+<button id="snapshot" disabled="">snapshot</button>
+<br>
+<canvas id="real_canvas" width="530" height="604"></canvas><br>
+<canvas id="pcanvas" width="530" height="604" style="visibility:hidden"></canvas><br>
+<canvas id="qcanvas" width="530" height="604" style="visibility:hidden"></canvas>
+</div>
+<hr>
+<div style="visibility: hidden;">
+<video id="video" autoplay=""></video>
+</div>
+    <script type="text/javascript">
+        const videoElement = document.querySelector('#video');
+		const startButton = document.querySelector('#start');
+		const stopButton = document.querySelector('#stop');
+		const snapshotButton = document.querySelector('#snapshot');
+let count = 0;
+let shot = null;
+// 화면캡쳐(video)를 시작하는 함수
+async function startCapture() {
+  try {
+    const displayMediaOptions = { audio: false, video: { cursor: 'never'} };
+    const captureStream = await navigator.mediaDevices.getDisplayMedia(
+      displayMediaOptions,
+    );
+    videoElement.srcObject = captureStream;
+    startButton.disabled = true;
+    stopButton.disabled = false;
+    snapshotButton.disabled = false;
+  } catch (err) {
+    console.error(err);
+  }
+}
+// 화면캡쳐를 중지하는 함수
+function stopCapture() {
+  const tracks = videoElement.srcObject.getTracks();
+  tracks.forEach((track) => track.stop());
+  videoElement.srcObject = null;
+  startButton.disabled = false;
+  stopButton.disabled = true;
+  snapshotButton.disabled = true;
+  clearInterval(shot);
+}
+// 스냅샷을 찍는 함수
+async function takeSnapshot() {
+  
+  const track = videoElement.srcObject.getVideoTracks()[0];
+  const imageCapture = new ImageCapture(track);
+  const image = await imageCapture.grabFrame();
+  let canvas = document.querySelector('#pcanvas');
+  const canvasq = document.querySelector('#qcanvas');
+  drawCanvas(canvas, image,25,83);
+  drawCanvas(canvasq, image,558,83);
+  setInterval(function () {shot = check(canvas,canvasq); }, 500);
+  
+  // ...
+}
+function drawCanvas(canvas, img,a,b) {
+  canvas.width = getComputedStyle(canvas).width.split('px')[0];
+  canvas.height = getComputedStyle(canvas).height.split('px')[0];
+  let ratio  = Math.min(canvas.width / img.width, canvas.height / img.height);
+  let x = (canvas.width - img.width * ratio) / 2;
+  let y = (canvas.height - img.height * ratio) / 2;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  canvas.getContext('2d').drawImage(img,a, b, 530, 604, 0,0, 530, 604);
+  //canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height, x, y, img.width * ratio, img.height * ratio);
+  //canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
+  //console.log(canvas.toDataURL());
+}
+
+function check(canvasp,canvasq){
+	let pData = canvasp.getContext('2d').getImageData(0, 0, canvasp.width, canvasp.height);
+    let qData = canvasq.getContext('2d').getImageData(0, 0, canvasq.width, canvasq.height);
+    var real_Data = document.querySelector('#real_canvas').getContext('2d');
+    var iData = real_Data.createImageData(530, 604);
+	count++;
+  	count%=3;
+	for (var i=0; i<pData.data.length; i+=4){
+		let kk = Math.abs(pData.data[i+0] - qData.data[i+0]);
+		let pp = Math.abs(pData.data[i+1] - qData.data[i+1]);
+		let qq = Math.abs(pData.data[i+2] - qData.data[i+2]);
+    	if(kk<=27 && pp <=27 && qq <= 27){
+    	// if(kk + pp + qq <= 60){
+        		iData.data[i+0]=pData.data[i+0];
+            	iData.data[i+1]=pData.data[i+1];
+            	iData.data[i+2]=pData.data[i+2];
+            	iData.data[i+3]=pData.data[i+3];
+            }
+        else{
+        		iData.data[i+(count%3)]= 255;
+                iData.data[i+3]=255;
+        }
+
+    }
+
+    real_Data.putImageData(iData,0,0);
+}
+
+startButton.addEventListener('click', startCapture);
+stopButton.addEventListener('click', stopCapture);
+snapshotButton.addEventListener('click', takeSnapshot);
+    </script>
